@@ -1,0 +1,51 @@
+// Define the epicenter as a point geometry
+var epicenter = ee.Geometry.Point([137.24, 37.50]);
+
+// Define the maximum distance (in meters) for the buffer
+var maxDistance = 100000;  // 100 kilometers
+
+// Create a buffer around the epicenter for visualization
+var buffer = epicenter.buffer(maxDistance);
+
+// Visualize the buffer
+Map.addLayer(buffer, {color: 'blue'}, 'Buffer around Epicenter');
+
+// Create an image where all pixels are zero except the epicenter
+var epicenterImage = ee.Image().toByte()
+    .paint(epicenter, 1);
+
+// Calculate the distance from every point to the epicenter
+var distanceFromEpicenter = epicenterImage.distance({
+  kernel: ee.Kernel.euclidean(maxDistance, 'meters')
+});
+
+// Convert distance to kilometers
+var distanceImage = distanceFromEpicenter.divide(1000);  // Convert from meters to kilometers
+
+// Define a function to calculate MMI based on distance
+function calculateMMI(distance) {
+    var maxMMI = ee.Image.constant(9);
+    var decayRate = ee.Image.constant(0.1);
+    return maxMMI.subtract(distance.multiply(decayRate)).clamp(0, 9);
+}
+
+// Apply the MMI calculation function to the distance image
+var mmiImage = calculateMMI(distanceImage);
+
+// Visualization parameters for MMI
+var mmiVis = {
+    min: 0,
+    max: 9,
+    palette: [
+        'ffffff', 'fff4c9', 'ffe391', 'ffc569', 'ff9e50', 
+        'ff6e40', 'ff4030', 'd20000', 'a70000'
+    ]
+};
+
+// Center the map and add the MMI layer
+Map.setCenter(137.24, 37.50, 8);
+Map.addLayer(mmiImage, mmiVis, 'MMI Intensity');
+
+// Mark the epicenter on the map
+var epicenterFeature = ee.Feature(epicenter, {name: 'Epicenter'});
+Map.addLayer(epicenterFeature, {color: 'red'}, 'Epicenter');
