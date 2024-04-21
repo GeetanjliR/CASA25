@@ -1,0 +1,95 @@
+# CASA00025 : Comprehensive Multi-Disaster Application
+
+## Project Summary
+
+**Spatial events** are **complex** and often entail **chain reactions**. Moreover, severe ripple effects can be observed, especially during disasters in densely populated urban areas. It becomes imperative to understand such disaster events collectively to comprehend the domino effect and its implications. Thus, the project aims to create an application to assess multiple disaster events.
+
+### Problem Statement
+
+With increasing anthropological interference with nature and non-environmentally friendly development, the risk of disasters across the globe is on the rise. The present body of knowledge witnesses that disaster events are often studied in silos. However, recent evidence from Japan shows that more than one disaster can occur simultaneously, such as earthquakes, tsunamis, fires, and landslides. On January 1st, 2024, an earthquake with a magnitude of 7.5 hit the Noto Peninsula, Japan, resulting in an estimated 10,000 buildings damaged or destroyed. The extent and intensity of the disaster in the Noto Peninsula, which consists of 300-400 meter mountains and elevations, **presents varying geographic conditions, embedding a multi-nature of land-forms and its events, making it difficult to assess the multi-disaster occurrence together or as a chain of activities**. In order **to identify the overlapping extent and intensity of the multiple-disaster impact, the attempted application seeks to estimate spatial and physical implications using satellite imagery**. Therefore, a multi-disaster map layer could provide the extent of spatial severity and impact to assess various areas and building-level and area-level measures. Thus, **the complex urban system requires a comprehensive assessment tool**.
+
+### End User
+
+Various stakeholders have been identified who can benefit from the application. The **Japan Ministry of Disaster Management** is one such stakeholder that could use the application **to assess the typology of disasters, whether individually or comprehensively**. Understanding the disasters holistically, the **housing department may utilize the application to carry out suitable building retrofitting or renovation**. Additionally, appropriate **beneficiary schemes** may use the application to provide **compensation**. Furthermore, the **Ministry of Land, Infrastructure, Transport, and Tourism** could further analyze the epicenter from individual disaster and combined disaster event scenarios. Thus, **Ishikawa Prefecture (Local Authority)** and **reconstruction agencies** are also relevant stakeholders. Studies, research, and reports on building investigation (e.g., material and years), level of damage could be conducted, aiding in policy interventions such as the review of the Building Standards Act. Beneficiary schemes (e.g., compensation) or reconstruction for Future **Urban Planning**, as well as for **immediate rescue and search bots**, may also benefit from the application.
+
+### Data
+
+Data-driven assessment and decision-making application could provide ease of interaction for users to understand and action upon. In order to handle ginormous datasets to plan and manage complex spatial phenomena for above identified stakeholders could be enabled by create a user interface to disseminate information and knowledge. Thus, **Sentinel-1 Synthetic Aperture Radar (SAR)** imagery, **Sentinel-1 GRD** imagery for earthquake, **USGS SRTMGL1** imagery for Tsunami, **MODIS/061/MCD64A1** for fire and **COPERNICUS/S1_GRD** for landslide satellite data are significant to the study.
+
+### Methodology and Methods
+
+A robust methodology has been employed to achieve the aim of designing an application to assess the impact of multiple disaster events in a given spatial location in Japan. The first objective involves designing maps for individual disasters, such as earthquakes, tsunamis, fires, and landslides. Subsequently, the multi-disaster map depicts the intensity of disasters in terms of the number of events affecting the same building or area. This exercise aims to design an application to assess the impact of multiple disaster events in a given spatial location of the City of Wajima. The present design of the application attempts to achieve the following objectives:
+
+1.  To **understand the intensity of the disaster in terms of the number/ level of disasters impacting building damage or spatial vulnerability**.
+2.  Finally, **to develop a user interface application for the ease of information access and knowledge dissemination to stakeholders**.
+
+The various **methods** used are **machine learning (ML) using Random Forest, NDVI/NIR, confusion matrix, T-Test, mean, standard deviation, confidence level, assumptions, standards**. In addition, these objectives facilitate the development of an application for easy of access to information and dissemination of knowledge to users whose methodology is as below.
+
+![Methodology](images/methodology.jpg)
+
+### Interface
+
+Creating a user-friendly interactive platform, the multi-disaster application offers several advantages. The present application categorizes into sequential disaster maps of earthquakes, landslides, fires, and tsunamis, each equipped with layers, panels, buttons, sliders, etc., for user interaction. The earthquake map provides building damage visualization, allowing users to draw polygons to calculate the number of damaged buildings and shows damage assessment using a low-to-high scale based on t-test results. The landslide map visualizes occurrences of landslides and allows users to assess intensity by toggling between options such as pre-event, post-event, landslide detection, road, water bodies using the confusion matrix, and accuracy algorithm. Similarly, the fire disaster map illustrates the catchment area from the fire source, with layers based on brightness and surface temperature change for further interaction. Lastly, the tsunami disaster map displays building damage and flood level implications, allowing users to adjust the flood level slider to identify inundated buildings and area. Overall, the designed interface offers multi-disaster maps with various options for user interaction to assess location, building damage count, risk levels, pre-event/post-event scenarios, buffer zones, catchment areas, and more.Therefore, the outputs could be utilized by the user, i.e., identified stakeholders, **to undertake building reconstruction, retrofitting, policy interventions, disaster mitigation, and management**.
+
+
+## The Application
+The following link to application is as below.
+
+::: column-page
+<iframe src="https://ee-rengeanzu.projects.earthengine.app/view/earthquake2" width="100%" height="700px">
+
+</iframe>
+:::
+
+## How it Works
+
+### Earthquake (damaged building)
+
+The provided JavaScript code defines a function **'ttest'** for performing a t-test analysis on Sentinel-1 Synthetic Aperture Radar (SAR) imagery. The function takes inputs such as the image collection **'s1'**, shock date, pre-event and post-event intervals, and calculates the t-value representing the magnitude of change between the two periods. It computes the mean and standard deviation for both the pre-event and post-event periods, then calculates the pooled standard deviation and the denominator of the t-test formula. Finally, it returns the absolute value of the change, which indicates the significance of the difference between the two periods.
+
+Additionally, there is another function **'filter_s1'** that filters Sentinel-1 GRD (Ground Range Detected) imagery based on specified parameters such as orbit path, polarization, and date range. It aggregates the relative orbit numbers, then maps over each orbit to filter the image collection accordingly. Within this function, the 'ttest' function is applied to both **VV and VH polarizations** separately, and the resulting t-values are combined to form a mean t-value image. This allows for the analysis of change detection in SAR imagery over a specified time period and orbit path.
+
+``` js
+Map.setCenter(35.51898, 33.90153, 15);
+
+Map.setOptions("satellite");
+
+var aoi = ee.Geometry.Point(35.51898, 33.90153).buffer(3000);
+```
+
+
+
+![Pixelwise T-Test, 2023-24](images/Earthquake.jpg)
+
+and math: $$ \Large t = {\frac{\overline{x_1}-\overline{x_2}} {\sqrt{\frac{s^2_1}{n_1} + \frac{s^2_2}{n_2}}}} $$
+
+
+### Landslide
+
+The code snippet provides a landslide detection visualization tool using Sentinel-1 GRD imagery. It calculates the mean difference between pre and post-event periods, applying a threshold to create a mask highlighting areas of significant change. The masked layer, showing the difference more clearly, is overlaid on the map along with the original landslide detection layer, enabling users to visualize and assess potential landslide areas effectively.
+
+To enhance the analysis, additional features such as building footprints or vegetation indices like **NDVI/NIR** could be integrated. Clipping the analysis to land areas using multipoint geometry could provide more accurate results. Adjusting the threshold for the mask can improve the display by focusing on areas with substantial changes, aiding in the identification and assessment of landslide risks. Users can interact with the map interface to explore different layers and adjust parameters for more **comprehensive landslide detection and visualization**.
+
+![Machine Learning (Random Forest Analysis), 2024](images/Landslide.jpg)
+
+### Fire
+
+The code snippet creates a fire burn area **visualization tool in Earth Engine's JavaScript API**. It allows users to select different fire datasets and years using dropdown menus and sliders, respectively. Upon selection, the map dynamically updates to display the burned areas for the chosen dataset and year, aiding in the assessment and monitoring of fire impacts over time and across different datasets.
+
+![Machine Learning (Random Forest Analysis), 2024](images/Landslide.jpg)
+
+
+### Tsunami
+
+The provided JavaScript code is a Google Earth Engine script designed to simulate the inundation of buildings caused by a tsunami event. It utilizes elevation data from the **USGS SRTMGL1 dataset** to determine flooded areas at various water levels. The script loads a CSV file containing building footprints and iterates over different flood levels, displaying the impacted buildings on a map. It distinguishes flooded buildings at different water levels using different colors and provides a legend panel to explain the color scheme.
+
+The script initializes a map panel centred on a specific location and loads elevation data and building footprints within a defined area of interest. It then computes and visualizes the affected buildings at different flood levels, allowing for the assessment of tsunami inundation impact on infrastructure. Additionally, it constructs a legend panel to provide a clear explanation of the color-coded representation of flooded buildings at various water levels, enhancing the interpretability of the map visualization.
+
+![Assumptions: Flood levels, 2024](images/Tsunami.jpg)
+
+## Validation
+
+
+
+
+Reference:
