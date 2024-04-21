@@ -1,0 +1,227 @@
+// damaged buildinbuilding layer
+var imageCollection = ee.ImageCollection("COPERNICUS/S1_GRD"),
+    imageCollection3 = ee.ImageCollection("MODIS/061/MCD64A1"),
+    table = ee.FeatureCollection("projects/ee-karixu04/assets/202312BuildingFootprints"),
+    image = ee.Image("USGS/SRTMGL1_003");
+//focusing on the specific area, taking a buffer 5 km
+Map.setCenter(136.89961, 37.39405, 16);
+Map.setOptions("satellite");
+var aoi = ee.Geometry.Point(136.89961, 37.39405).buffer(15000);
+
+
+//defining T-test function
+function ttest(s1, shock, pre_interval, post_interval) {
+  
+  // Convert the shock date to a date object
+  var shock = ee.Date(shock);
+  // Filter the image collection to the pre-event period
+  var pre = s1.filterDate(
+    shock.advance(ee.Number(pre_interval).multiply(-1), "month"),
+    shock
+  );
+  // Filter the image collection to the post-event period
+  var post = s1.filterDate(shock, shock.advance(post_interval, "month"));
+  
+  // Calculate the mean, standard deviation, and number of images for the pre-event period
+  var pre_mean = pre.mean();
+  var pre_sd = pre.reduce(ee.Reducer.stdDev());
+  var pre_n = ee.Number(pre.filterBounds(aoi).size());
+  
+  // Calculate the mean, standard deviation, and number of images for the post-event period
+  var post_mean = post.mean();
+  var post_sd = post.reduce(ee.Reducer.stdDev());
+  var post_n = ee.Number(post.filterBounds(aoi).size());
+  
+  // Calculate the pooled standard deviation
+  var pooled_sd = pre_sd
+    .multiply(pre_sd)
+    .multiply(pre_n.subtract(1))
+    .add(post_sd.multiply(post_sd).multiply(post_n.subtract(1)))
+    .divide(pre_n.add(post_n).subtract(2))
+    .sqrt();
+
+    // Calculate the denominator of the t-test
+  var denom = pooled_sd.multiply(
+    ee.Number(1).divide(pre_n).add(ee.Number(1).divide(post_n)).sqrt()
+  );
+
+    // Calculate the Degrees of Freedom, which is the number of observations minus 2
+  var df = pre_n.add(post_n).subtract(2);
+
+  print("Number of Images: ", df);
+
+    // Calculate the t-test using the:
+        // mean of the pre-event period, 
+        // the mean of the post-event period, 
+        // and the pooled standard deviation
+  var change = post_mean
+    .abs()
+    .subtract(pre_mean.abs())
+    .divide(denom)
+    .abs()
+    .subtract(2);
+
+    // return the t-values for each pixel
+  return change;
+}
+
+
+// filtering the images by orbit
+function filter_s1(path) {
+  
+  // Filter the image collection to the ascending or descending orbit
+  var s1 = ee
+    .ImageCollection("COPERNICUS/S1_GRD")
+    .filter(ee.Filter.listContains("transmitterReceiverPolarisation", "VH"))
+    .filter(ee.Filter.eq("instrumentMode", "IW"))
+    .filter(ee.Filter.eq("orbitProperties_pass", path))
+    .filterBounds(aoi)
+    .select("VH");
+
+    // Find the most common relative orbit number
+  var orbit = s1
+    .aggregate_array("relativeOrbitNumber_start")
+    .reduce(ee.Reducer.mode());
+
+    // Filter the image collection to the most common relative orbit number
+  var s1 = s1.filter(ee.Filter.eq("relativeOrbitNumber_start", orbit));
+
+    // Calculate the t-test for the filtered image collection using the function we defined earlier
+  var change = ttest(s1, "2024-01-01", 12, 3);
+
+    // Return the t-values for each pixel
+  return change;
+}
+
+
+// visualization
+// Call the filter_s1 function twice, once for each orbit, and then combine the two images into a single image
+var composite = ee
+  .ImageCollection([filter_s1("DESCENDING")])
+  .mean()
+  .clip(aoi);
+
+
+// Create a mask of the t-test image, where pixels with a value greater than 0 are set to 1, and all other pixels are set to 0
+var threshold = composite.updateMask(composite.gt(0));
+
+// Load the building footprints
+var buildings = ee
+  .FeatureCollection("projects/ee-karixu04/assets/202312BuildingFootprints")
+  .filterBounds(aoi);
+
+// Calculate the mean value of the t-test image within each building footprint
+var damaged_buildings = threshold.reduceRegions({
+  collection: buildings,
+  reducer: ee.Reducer.mean(),
+  scale: 1,
+});
+
+// Print the number of buildings with a mean value greater than 0
+// i.e., those displaying statistically  significant change
+print(damaged_buildings.filter(ee.Filter.gt("mean", 0)).size());
+
+// Create an empty image
+var empty = ee.Image().byte();
+
+// Paint the building footprints onto the empty image
+var outline = empty.paint({ 
+  featureCollection: damaged_buildings,
+  color: "mean",
+  width: 1,
+});
+
+// Dilate the painted areas to make the outline thicker
+var dilated_outline = outline.focal_max({ radius: 3, kernelType: 'circle', iterations: 1 });
+
+// Define a color palette
+var building_palette = [
+  "0034f5",
+  "1e7d83",
+  "4da910",
+  "b3c120",
+  "fcc228",
+  "ff8410",
+  "fd3000",
+];
+
+// Add the image to the map
+Map.addLayer(
+  dilated_outline,
+  { palette: building_palette, min: 0, max: 2 },
+  "Damaged Buildings"
+);
+
+// fire data layer
+
+var tsuruoka = ee.Geometry.Polygon(
+  [[
+    [139.3150, 38.2700],  // 西南角
+    [139.8400, 38.2700],  // 东南角
+    [139.8400, 38.7600],  // 东北角
+    [139.3150, 38.7600],  // 西北角
+    [139.3150, 38.2700]   // 回到西南角，闭合多边形
+  ]]
+);
+var firePoints = ee.FeatureCollection('projects/ee-karixu04/assets/df1_filter');
+
+// Initialize the map
+Map.setCenter(136.89961, 37.39405, 15);
+Map.setOptions("SATELLITE");
+
+
+// 为每个火灾点生成影响圆区域
+var radii = [15, 50, 100];  // 单位为米
+var fireBuffers = firePoints.map(function(feature) {
+  var buffers = ee.FeatureCollection(radii.map(function(radius) {
+    return feature.buffer(radius).set('radius', radius); // 设置为当前radius，而非整个数组
+  }));
+  return buffers;
+}).flatten();
+
+// 设置不同半径的显示颜色
+var colors = ['FF0000', 'FFFF00', 'FF0000'];  // 红, 黄, 绿
+var opacities = ['44', '88', 'FF'];  // 对应的透明度，从不透明到较透明
+var styledBuffers = fireBuffers.map(function(feature) {
+  // 获取feature的radius属性，如果未定义则设为默认值
+  var radius = feature.get('radius') || 10;  // 默认半径为10米
+  var idx = radii.indexOf(radius);  // 获取半径对应的索引
+
+  // 如果idx是无效值，设置为默认索引
+  if (idx === -1 || idx === undefined) {
+    idx = 0;  // 使用默认索引0，通常指向一个安全的值
+  }
+
+  // 使用有效的颜色和透明度，或者使用默认值
+  var color = colors[idx] || 'FF0000';  
+  var opacity = opacities[idx] || 'FF'; 
+  var fillColor = color + opacity; 
+
+  // 定义样式
+  var style = {
+    color: color,
+    fillColor: fillColor,
+    fillOpacity: 0.5  // 填充透明度
+  };
+
+  // 应用样式
+  return feature.set('style', style);
+});
+
+// 将缓冲区显示在地图上
+Map.addLayer(styledBuffers.style({styleProperty: 'style'}), {}, 'Impact Zones');
+
+
+// 假设最大半径为100米
+var maxRadius = 100;
+
+// 从所有缓冲区中选择最大的一个
+var largestBuffer = fireBuffers.filter(ee.Filter.eq('radius', maxRadius)).first();
+
+// 使用最大缓冲区过滤受损建筑图层
+var filteredDamagedBuildings = damaged_buildings.filterBounds(largestBuffer.geometry());
+
+// 可视化筛选后的受损建筑
+Map.addLayer(filteredDamagedBuildings, {color: 'red'}, 'Filtered Damaged Buildings');
+
+
