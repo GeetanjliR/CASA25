@@ -1,0 +1,119 @@
+// 设置地图中心和视图模式
+Map.setCenter(136.89961, 37.39405, 15);
+Map.setOptions("SATELLITE");
+
+// 定义感兴趣区域（AOI）为中心点周围3公里的缓冲区
+var aoi = ee.Geometry.Point(136.89961, 37.39405).buffer(3000);
+
+// 加载地形高程数据
+var elevation = ee.Image('USGS/SRTMGL1_003').clip(aoi);
+
+// 加载CSV文件，假设包含建筑物轮廓
+var csv = ee.FeatureCollection('projects/ee-a2391358275/assets/202312BuildingFootprints').filterBounds(aoi);
+
+// 洪水水位高程数组
+var floodLevels = [1, 3, 5, 7, 9, 11];
+
+// 初始化上一个洪水区域
+var previousFlooded = ee.Image.constant(0);
+
+var brownToYellowPalette = [
+  '#00008B',  // 深蓝色
+   '#0000CD',  // 中度的蓝色
+   '#4169E1',  // 皇家蓝
+   '#1E90FF',  // 道奇蓝
+  '#FFD700', // 金色
+  '#FFFF00'  // 黄色
+];
+
+// 函数：计算并显示特定水位下受影响的建筑物
+function displayFloodImpact(floodLevel) {
+    // 当前水位下的洪水区域
+    var flooded = elevation.lte(floodLevel);
+    
+    // 排除之前水位影响的区域
+    var newFlooded = flooded.and(previousFlooded.not());
+
+    // 更新上一个洪水区域
+    previousFlooded = previousFlooded.or(flooded);
+
+    var floodedPoints = csv.map(function(feature) {
+        return feature.set('isFlooded', newFlooded.reduceRegion({
+            reducer: ee.Reducer.first(),
+            geometry: feature.geometry(),
+            scale: 30
+        }).get('elevation'));
+    }).filter(ee.Filter.eq('isFlooded', 1));
+
+    // 可视化被洪水影响的建筑物
+    Map.addLayer(floodedPoints, {color: brownToYellowPalette[floodLevels.indexOf(floodLevel)]}, 'Flooded Points at ' + floodLevel + 'm');
+}
+
+// 遍历不同的洪水水位高程并显示影响
+floodLevels.forEach(displayFloodImpact);
+
+// 可视化所有建筑物点，用黄色表示
+//Map.addLayer(csv, {color: 'yellow'}, 'All Buildings');
+
+// 添加标题
+Map.add(ui.Label('Simulation of tsunami inundation on buildings', {position: 'top-left', fontWeight: 'bold', fontSize: '24px'}));
+
+// 创建一个面板来显示图层标注信息
+var legend = ui.Panel({
+    style: {
+        position: 'bottom-left',
+        padding: '8px 15px'
+    }
+});
+
+// 添加图层标注标题
+var legendTitle = ui.Label({
+    value: 'Layer Description',
+    style: {
+        fontWeight: 'bold',
+        fontSize: '18px',
+        margin: '0 0 4px 0',
+        padding: '0'
+    }
+});
+legend.add(legendTitle);
+
+var layers = [
+    {name: 'Flooded buildings at 1m', color: brownToYellowPalette[0]},
+    {name: 'Flooded buildings at 3m', color: brownToYellowPalette[1]},
+    {name: 'Flooded buildings at 5m', color: brownToYellowPalette[2]},
+    {name: 'Flooded buildings at 7m', color: brownToYellowPalette[3]},
+    {name: 'Flooded buildings at 9m', color: brownToYellowPalette[4]},
+    {name: 'Flooded buildings at 11m', color: brownToYellowPalette[5]},
+];
+
+layers.forEach(function(layer) {
+    // 创建一个水平布局的面板
+    var layerItem = ui.Panel({
+        widgets: [
+            ui.Label({
+                value: '■', // 使用方块符号表示颜色块
+                style: {
+                    color: layer.color, // 设置颜色块的颜色
+                    fontWeight: 'bold',
+                    fontSize: '18px', // 调整大小以适应标注
+                    margin: '0 4px 0 0' // 右边距用于分隔颜色块和文字
+                }
+            }),
+            ui.Label({
+                value: layer.name,
+                style: {
+                    color: 'black', // 文本颜色
+                    margin: '0',
+                    fontSize: '16px' // 文本大小
+                }
+            })
+        ],
+        layout: ui.Panel.Layout.flow('horizontal')
+    });
+    // 将每个图层的标注添加到图例面板
+    legend.add(layerItem);
+});
+
+// 将图例面板添加到地图上
+Map.add(legend);

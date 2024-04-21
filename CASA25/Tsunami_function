@@ -1,0 +1,72 @@
+// 设置地图中心和视图模式
+Map.setCenter(136.89961, 37.39405, 15);
+Map.setOptions("SATELLITE");
+
+// 定义感兴趣区域（AOI）为中心点周围3公里的缓冲区
+var aoi = ee.Geometry.Point(136.89961, 37.39405).buffer(3000);
+
+// 加载地形高程数据
+var elevation = ee.Image('USGS/SRTMGL1_003').clip(aoi);
+
+// 加载CSV文件，假设包含建筑物轮廓
+var csv = ee.FeatureCollection('projects/ee-a2391358275/assets/202312BuildingFootprints').filterBounds(aoi);
+
+// 定义洪水水位高程数组
+var floodLevels = ee.List.sequence(1, 11);
+
+// 创建拖动条
+var floodSlider = ui.Slider({
+  min: 1,
+  max: 11,
+  value: 1,
+  step: 1,
+  style: {stretch: 'horizontal'}
+});
+
+// 创建显示计数的标签
+var countLabel = ui.Label('');
+var label = ui.Label('Select flood level (meters):');
+
+// 创建包含标签、滑块和计数器的面板
+var panel = ui.Panel({
+  widgets: [label, floodSlider, countLabel],
+  style: {
+    position: 'bottom-left',
+    padding: '8px 15px'
+  }
+});
+
+Map.add(panel);
+
+// 函数：计算并显示特定水位下受影响的建筑物
+function displayFloodImpact(floodLevel) {
+    // 当前水位下的洪水区域
+    var flooded = elevation.lte(floodLevel);
+    var floodedPoints = csv.map(function(feature) {
+        return feature.set('isFlooded', flooded.reduceRegion({
+            reducer: ee.Reducer.anyNonZero(),
+            geometry: feature.geometry(),
+            scale: 30
+        }).get('elevation'));
+    }).filter(ee.Filter.eq('isFlooded', 1));
+
+    // 更新地图层和计数
+    floodedPoints.size().evaluate(function(size) {
+        countLabel.setValue('Number of flooded buildings: ' + size);
+    });
+
+    // 可视化被洪水影响的建筑物
+    var floodLayer = ui.Map.Layer(floodedPoints, {color: 'red'}, 'Flooded Buildings at ' + floodLevel + 'm', true, 0.6);
+    Map.layers().set(0, floodLayer);
+}
+
+// 监听拖动条变化
+floodSlider.onSlide(function(value) {
+    displayFloodImpact(value);
+});
+
+// 初始化显示
+displayFloodImpact(1);
+
+// 添加标题
+Map.add(ui.Label('Simulation of tsunami inundation on buildings', {position: 'top-center', fontWeight: 'bold', fontSize: '24px'}));
