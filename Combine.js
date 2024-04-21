@@ -14,14 +14,15 @@ var imageCollection = ee.ImageCollection("COPERNICUS/S1_GRD"),
     ee.Geometry.MultiPoint();
     
     
-    
+
 /// ------------------------------------- SETTING ------------------------------------- ///
 // Set an area of interest
 var aoi = ee.Geometry.Polygon(
   [[
-    [136.6996, 36.2903],
     [137.0996, 36.2903],
     [137.0996, 37.4903],
+    [136.6996, 37.4903],
+    [136.6996, 36.2903]
   ]]
 );
 var initialPoint = ee.Geometry.Point(136.89961, 37.39405);
@@ -609,11 +610,9 @@ function updateMap() {
   mapPanel_fire.clear();
   mapPanel_fire.setCenter(center.lon, center.lat, center.zoom);
   mapPanel_fire.addLayer(maxBurnedArea, visParams, 'Burned Area');
-  mapPanel_fire.add(buttonPanel);
 }
 
 ////updateMap();  // Initial map update
-
 
 
 
@@ -640,12 +639,12 @@ var floodLevels = [1, 3, 5, 7, 9, 11];
 var previousFlooded = ee.Image.constant(0).clip(aoi);
 
 var bluePalette = [
-    '#FFFF00',  // Yellow
-    '#FFD700', // Gold
-    '#FFA500',  
-    '#4169E1',  // Royal blue
+    '#00008B',  // Dark blue
     '#0000CD',  // Medium blue
-    '#00008B'  // Dark blue
+    '#4169E1',  // Royal blue
+    '#FFA500',
+    '#FFD700', // Gold
+    '#FFFF00',  // Yellow
    ];
 
 
@@ -673,12 +672,13 @@ floodLevels.forEach(function(level, index) {
 
     // Visualize the newly flooded area at the current water level
     mapPanel_tsunami.addLayer(newFloodedArea.updateMask(newFloodedArea), visualization, 'Flooded at ' + level + 'm');
+
 });
 
 
 
 // Create a panel to display layer annotations
-var legend = ui.Panel({
+var legend_tsunami = ui.Panel({
     style: {
         position: 'bottom-left',
         padding: '8px 15px'
@@ -686,7 +686,7 @@ var legend = ui.Panel({
 });
 
 // Add a title for layer annotations
-var legendTitle = ui.Label({
+var legendTitle_tsunami = ui.Label({
     value: 'Layer Description',
     style: {
         fontWeight: 'bold',
@@ -695,7 +695,7 @@ var legendTitle = ui.Label({
         padding: '0'
     }
 });
-legend.add(legendTitle);
+legend_tsunami.add(legendTitle_tsunami);
 
 var layers = [
     {name: 'Flooded at 1m', color: bluePalette[0]},
@@ -731,10 +731,11 @@ layers.forEach(function(layer) {
         layout: ui.Panel.Layout.flow('horizontal')
     });
     // Add the annotation for each layer to the legend panel
-    legend.add(layerItem);
+    legend_tsunami.add(layerItem);
 });
 
-
+var tsunamiLabel = ui.Label('Simulation of tsunami inundation on City of Wajima', 
+{position: 'top-left', fontWeight: 'bold', fontSize: '24px'});
 
 
 // Create a slider
@@ -746,7 +747,7 @@ var slider = ui.Slider({
 });
 
 // Create a label
-var label = ui.Label('Flooded area proportion: ' + proportion[0]); // Display initial value
+var label_tsunami = ui.Label('Flooded area proportion: ' + proportion[0]); // Display initial value
 
 // Define a function to run when the slider value changes
 slider.onChange(function(value) {
@@ -755,8 +756,8 @@ slider.onChange(function(value) {
 });
 
 // Add the slider and label to a panel
-var panel = ui.Panel({
-  widgets: [slider, label],
+var panel_tsunami = ui.Panel({
+  widgets: [slider, label_tsunami],
   layout: ui.Panel.Layout.flow('vertical'),
     style: {
     position: 'bottom-left',
@@ -794,17 +795,16 @@ function displayFloodImpact(floodLevel) {
     }).filter(ee.Filter.eq('isFlooded', 1));
 
     // Visualize flooded buildings with the new color palette
-    mapPanel_tsunami2.addLayer(floodedPoints, 
-    {color: [[bluePalette[0]], [bluePalette[1]], [bluePalette[2]], [bluePalette[3]], [bluePalette[4]], [bluePalette[5]]]
-    [floodLevels.indexOf(floodLevels)]}, 
-    'Flooded Points at ' + floodLevels + 'm');
+    mapPanel_tsunami2.addLayer(floodedPoints, {color: ['#00008B', '#0000CD', '#4169E1', '#FFA500', '#FFD700', '#FFFF00'][floodLevels.indexOf(floodLevel)]}, 'Flooded Points at ' + floodLevel + 'm');
 }
+
+
 
 floodLevels.forEach(displayFloodImpact);
 
 
 // Create a panel to display layer annotations
-var legend = ui.Panel({
+var legend_tsunami2 = ui.Panel({
     style: {
         position: 'bottom-left',
         padding: '8px 15px'
@@ -812,7 +812,7 @@ var legend = ui.Panel({
 });
 
 // Add layer annotation title
-var legendTitle = ui.Label({
+var legendTitle_tsunami2 = ui.Label({
     value: 'Layer Description',
     style: {
         fontWeight: 'bold',
@@ -821,7 +821,7 @@ var legendTitle = ui.Label({
         padding: '0'
     }
 });
-legend.add(legendTitle);
+//legend_tsunami2.add(legendTitle_tsunami2);
 
 var layers = [
     {name: 'Flooded buildings at 1m', color: bluePalette[0]},
@@ -831,6 +831,7 @@ var layers = [
     {name: 'Flooded buildings at 9m', color: bluePalette[4]},
     {name: 'Flooded buildings at 11m', color:bluePalette[5]}
 ];
+
 
 layers.forEach(function(layer) {
     // Create a panel with horizontal layout
@@ -857,77 +858,13 @@ layers.forEach(function(layer) {
         layout: ui.Panel.Layout.flow('horizontal')
     });
     // Add annotation for each layer to the legend panel
-    legend.add(layerItem);
+    legend_tsunami2.add(layerItem);
 });
 
+var tsunamiLabel2 = ui.Label('Simulation of tsunami inundation on buildings', 
+{position: 'top-left', fontWeight: 'bold', fontSize: '24px'});
 
 
-var buildingCounts = []; // Array to store the number of buildings at each flood level
-var totalBuildingCount = 0; // Variable to store the total number of buildings
-
-// Iterate over each flood level
-floodLevels.forEach(function(level) {
-    // Compute the mask for flooded areas
-    var floodedArea = elevation.lte(level).rename('flooded');
-
-    // Extract buildings within flooded areas
-    var floodedBuildings = csv.filterBounds(aoi).filterBounds(floodedArea.geometry()).size();
-    
-    // Add the count of buildings at each flood level to the array
-    buildingCounts.push(floodedBuildings.getInfo());
-    
-    // Increment the total building count
-    totalBuildingCount += floodedBuildings.getInfo();
-});
-
-// Calculate the proportion of buildings at each flood level
-var proportionBuildings = buildingCounts.map(function(count) {
-    return count / totalBuildingCount;
-});
-
-// Print the results
-print('Building counts for each flood level:', buildingCounts);
-print('Total building count:', totalBuildingCount);
-print('Proportion of buildings for each flood level:', proportionBuildings);
-
-
-
-// Create a slider
-var slider = ui.Slider({
-  min: 1,
-  max: 11,
-  value: 1,
-  step: 2,
-  style: {width: '200px'}
-});
-
-// Function to update the displayed proportion when the slider value changes
-var updateProportion = function(value) {
-  // Calculate the corresponding flood level
-  var index = (value - 1) / 2;
-  
-  // Get the proportion of buildings at the flood level
-  var proportion = proportionBuildings[Math.floor(index)];
-  
-  // Display the proportion in a label
-  label.setValue('Proportion of flooded area at Flood Level ' + value + 'm: ' + proportion.toFixed(4));
-};
-
-// Trigger the updateProportion function when the slider value changes
-slider.onChange(updateProportion);
-
-// Create a label and set its initial value
-var label = ui.Label('Proportion of flooded area at Flood Level 1m: 0');
-
-// Add the slider and label to a panel
-var panel = ui.Panel({
-  widgets: [slider, label],
-  layout: ui.Panel.Layout.flow('vertical'),
-  style: {
-    position: 'bottom-left',
-    padding: '8px'
-  }
-});
 
 
 /// ------------------------------------- BUTTON FUNCTION ------------------------------------- ///
@@ -990,6 +927,7 @@ function showFireLayer() {
   ui.root.add(panel_fire);
   ui.root.add(mapPanel_fire);
   updateMap();
+  mapPanel_fire.add(buttonPanel);
 }
 
 // Define a function to show Tsunami MapPanel
@@ -1001,12 +939,12 @@ function showTsunamiLayer() {
 
   ui.root.add(mapPanel_tsunami);
   
-  mapPanel_tsunami.add(buttonPanel);
-  mapPanel_tsunami.add(ui.Label('Simulation of tsunami inundation on City of Wajima', {position: 'top-left', fontWeight: 'bold', fontSize: '24px'}));
-  mapPanel_tsunami.add(legend);
-  mapPanel_tsunami.add(panel);
   
+  mapPanel_tsunami.add(tsunamiLabel);
+  mapPanel_tsunami.add(legend_tsunami);
+  mapPanel_tsunami.add(buttonPanel);
 }
+
 
 function showTsunami2Layer(){
   removeDamageLayer();
@@ -1014,12 +952,13 @@ function showTsunami2Layer(){
   removeFirelideLayer();
   removeTsunamiLayer();
   
-    ui.root.add(mapPanel_tsunami2);
+  ui.root.add(mapPanel_tsunami2);
+
   
+  mapPanel_tsunami2.add(tsunamiLabel2);
+  mapPanel_tsunami2.add(legend_tsunami2);
   mapPanel_tsunami2.add(buttonPanel);
-  mapPanel_tsunami2.add(ui.Label('Simulation of tsunami inundation on buildings', {position: 'top-left', fontWeight: 'bold', fontSize: '24px'}));
-  mapPanel_tsunami2.add(legend);
-  mapPanel_tsunami2.add(panel);
+
   
 }
 
@@ -1044,11 +983,17 @@ function removeFirelideLayer() {
 
 // Define a function to show Tsunami MapPanel
 function removeTsunamiLayer() {
-  mapPanel_tsunami.clear();
+  mapPanel_tsunami.remove(buttonPanel);
+  mapPanel_tsunami.remove(tsunamiLabel);
+  mapPanel_tsunami.remove(legend_tsunami);
+  //mapPanel_tsunami.clear();
   ui.root.clear();
  }
  
  function removeTsunami2Layer() {
-  mapPanel_tsunami2.clear();
+  mapPanel_tsunami2.remove(tsunamiLabel2);
+  mapPanel_tsunami2.remove(legend_tsunami2);
+  //mapPanel_tsunami2.clear();
+  mapPanel_tsunami2.remove(buttonPanel);
   ui.root.clear();
  }
