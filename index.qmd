@@ -1210,7 +1210,11 @@ One may witness the change from before and after building damage representing th
 
 # Reference
 
-Earth Engine Apps | Google Earth Engine [WWW Document], n.d. . Google for Developers. URL                    https://developers.google.com/earth-engine/guides/apps (accessed 4.21.24).
-Gärtner, P., 2024. philippgaertner/awesome-earth-engine-apps.
-Welcome to GSI | GSI HOME PAGE [WWW Document], n.d. URL https://www.gsi.go.jp/ENGLISH/index.html (accessed 4.21.24).
+- Earth Engine Apps | Google Earth Engine [WWW Document], n.d. . Google for Developers. URL
+    https://developers.google.com/earth-engine/guides/apps (accessed 4.21.24).
+- Gärtner, P., 2024. philippgaertner/awesome-earth-engine-apps.
+- Japan West Buildings footprint. Noto Earthquake January 2024 - Humanitarian Data Exchange [WWW Document], n.d. URL
+    https://data.humdata.org/dataset/open_buildings_v3_west_japan_earthquake_epicenter? (accessed 4.22.24).
+- Welcome to GSI | GSI HOME PAGE [WWW Document], n.d. URL https://www.gsi.go.jp/ENGLISH/index.html (accessed 4.21.24).
+
 
