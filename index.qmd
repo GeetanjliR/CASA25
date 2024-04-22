@@ -4,6 +4,8 @@
 
 **Spatial events** are **complex** and often entail **chain reactions**. Moreover, severe ripple effects can be observed, especially during disasters in densely populated urban areas. It becomes imperative to understand such disaster events collectively to comprehend the domino effect and its implications. Thus, the project aims to create an application to assess multiple disaster events.
 
+![Application Overview](images/Intro.jpg)
+
 ### Problem Statement
 
 With increasing anthropological interference with nature and non-environmentally friendly development, the risk of disasters across the globe is on the rise. The present body of knowledge witnesses that disaster events are often studied in silos. However, recent evidence from Japan shows that more than one disaster can occur simultaneously, such as earthquakes, tsunamis, fires, and landslides. On January 1st, 2024, an earthquake with a magnitude of 7.5 hit the Noto Peninsula, Japan, resulting in an estimated 10,000 buildings damaged or destroyed. The extent and intensity of the disaster in the Noto Peninsula, which consists of 300-400 meter mountains and elevations, **presents varying geographic conditions, embedding a multi-nature of land-forms and its events, making it difficult to assess the multi-disaster occurrence together or as a chain of activities**. In order **to identify the overlapping extent and intensity of the multiple-disaster impact, the attempted application seeks to estimate spatial and physical implications using satellite imagery**. Therefore, a multi-disaster map layer could provide the extent of spatial severity and impact to assess various areas and building-level and area-level measures. Thus, **the complex urban system requires a comprehensive assessment tool**.
@@ -36,7 +38,7 @@ Creating a user-friendly interactive platform, the multi-disaster application of
 The following link to application is as below.
 
 ::: column-page
-<iframe src="https://ee-rengeanzu.projects.earthengine.app/view/earthquake2" width="100%" height="700px">
+<iframe src="https://ee-rengeanzu.projects.earthengine.app/view/multipledissasterapplication" width="100%" height="700px">
 
 </iframe>
 :::
@@ -50,6 +52,7 @@ The provided JavaScript code defines a function **'ttest'** for performing a t-t
 Additionally, there is another function **'filter_s1'** that filters Sentinel-1 GRD (Ground Range Detected) imagery based on specified parameters such as orbit path, polarization, and date range. It aggregates the relative orbit numbers, then maps over each orbit to filter the image collection accordingly. Within this function, the 'ttest' function is applied to both **VV and VH polarizations** separately, and the resulting t-values are combined to form a mean t-value image. This allows for the analysis of change detection in SAR imagery over a specified time period and orbit path.
 
 ``` js
+-- ///
 // Set functions //
 // Define a t-test function
 function ttest(s1, shock, pre_interval, post_interval) {
@@ -92,6 +95,7 @@ function ttest(s1, shock, pre_interval, post_interval) {
 
   
   var change = post_mean
+  　.abs()
     .subtract(pre_mean)
     .divide(denom)
     .abs() //returning abs, so as t-value is bigger, the change becomes bigger.
@@ -712,216 +716,175 @@ mapPanel_landslide.add(panel);
 The code snippet creates a fire burn area **visualization tool in Earth Engine's JavaScript API**. It allows users to select different fire datasets and years using dropdown menus and sliders, respectively. Upon selection, the map dynamically updates to display the burned areas for the chosen dataset and year, aiding in the assessment and monitoring of fire impacts over time and across different datasets.
 
 ``` js
-// focusing on the specific area, taking a buffer 5 km
-// mapPanel_fire.setCenter(136.89961, 37.39405, 16);
-// mapPanel_fire.setOptions("satellite");
-// var aoi = ee.Geometry.Point(136.89961, 37.39405).buffer(15000);
 var mapPanel_fire = ui.Map();
 mapPanel_fire.centerObject(initialPoint, 14);
-mapPanel_fire.setOptions("SATELLITE");
+mapPanel_fire.setOptions("satellite");
 
 
+var footprints_fire = ee.FeatureCollection('projects/ee-rengeanzu/assets/location-points-to-polygons')
+  .filterBounds(aoi)
+  .map(function(feat) {
+    return feat.set('area', feat.geometry().area(10)).set('geometry_type', feat.geometry().type());
+  })
+  .filter(ee.Filter.gt('area', 50))
+  .filter(ee.Filter.equals('geometry_type', 'Polygon'));
 
-// // defining T-test function
-// function ttest(s1, shock, pre_interval, post_interval) {
-  
-//   // Convert the shock date to a date object
-//   var shock = ee.Date(shock);
-//   // Filter the image collection to the pre-event period
-//   var pre = s1.filterDate(
-//     shock.advance(ee.Number(pre_interval).multiply(-1), "month"),
-//     shock
-//   );
-//   // Filter the image collection to the post-event period
-//   var post = s1.filterDate(shock, shock.advance(post_interval, "month"));
-  
-//   // Calculate the mean, standard deviation, and number of images for the pre-event period
-//   var pre_mean = pre.mean();
-//   var pre_sd = pre.reduce(ee.Reducer.stdDev());
-//   var pre_n = ee.Number(pre.filterBounds(aoi).size());
-  
-//   // Calculate the mean, standard deviation, and number of images for the post-event period
-//   var post_mean = post.mean();
-//   var post_sd = post.reduce(ee.Reducer.stdDev());
-//   var post_n = ee.Number(post.filterBounds(aoi).size());
-  
-//   // Calculate the pooled standard deviation
-//   var pooled_sd = pre_sd
-//     .multiply(pre_sd)
-//     .multiply(pre_n.subtract(1))
-//     .add(post_sd.multiply(post_sd).multiply(post_n.subtract(1)))
-//     .divide(pre_n.add(post_n).subtract(2))
-//     .sqrt();
-
-//     // Calculate the denominator of the t-test
-//   var denom = pooled_sd.multiply(
-//     ee.Number(1).divide(pre_n).add(ee.Number(1).divide(post_n)).sqrt()
-//   );
-
-//     // Calculate the Degrees of Freedom, which is the number of observations minus 2
-//   var df = pre_n.add(post_n).subtract(2);
-
-//   print("Number of Images: ", df);
-
-//     // Calculate the t-test using the:
-//         // mean of the pre-event period, 
-//         // the mean of the post-event period, 
-//         // and the pooled standard deviation
-//   var change = post_mean
-//     .abs()
-//     .subtract(pre_mean.abs())
-//     .divide(denom)
-//     .abs()
-//     .subtract(2);
-
-//     // return the t-values for each pixel
-//   return change;
-// }
-
-
-// // filtering the images by orbit
-// function filter_s1(path) {
-  
-//   // Filter the image collection to the ascending or descending orbit
-//   var s1 = ee
-//     .ImageCollection("COPERNICUS/S1_GRD")
-//     .filter(ee.Filter.listContains("transmitterReceiverPolarisation", "VH"))
-//     .filter(ee.Filter.eq("instrumentMode", "IW"))
-//     .filter(ee.Filter.eq("orbitProperties_pass", path))
-//     .filterBounds(aoi)
-//     .select("VH");
-
-//     // Find the most common relative orbit number
-//   var orbit = s1
-//     .aggregate_array("relativeOrbitNumber_start")
-//     .reduce(ee.Reducer.mode());
-
-//     // Filter the image collection to the most common relative orbit number
-//   var s1 = s1.filter(ee.Filter.eq("relativeOrbitNumber_start", orbit));
-
-//     // Calculate the t-test for the filtered image collection using the function we defined earlier
-//   var change = ttest(s1, "2024-01-01", 12, 3);
-
-//     // Return the t-values for each pixel
-//   return change;
-// }
-
-
-// // visualization
-// // Call the filter_s1 function twice, once for each orbit, and then combine the two images into a single image
-var composite = ee
-  .ImageCollection([filter_s1("DESCENDING")])
-  .mean()
-  .clip(aoi);
-
-
-// // Create a mask of the t-test image, where pixels with a value greater than 0 are set to 1, and all other pixels are set to 0
-var threshold = composite.updateMask(composite.gt(0));
-
-// // Load the building footprints
-var buildings = ee
-  .FeatureCollection("projects/ee-rengeanzu/assets/202312BuildingFootprints")
-  .filterBounds(aoi);
-
-// Calculate the mean value of the t-test image within each building footprint
-var damaged_buildings = threshold.reduceRegions({
-  collection: buildings,
+var mean = image.reduceRegions({
+  collection: footprints_fire,
   reducer: ee.Reducer.mean(),
-  scale: 1,
+  scale: 10
 });
 
-// // Print the number of buildings with a mean value greater than 0
-// // i.e., those displaying statistically significant change
-// print(damaged_buildings.filter(ee.Filter.gt("mean", 0)).size());
 
-// Create an empty image
-var empty = ee.Image().byte();
+
+var empty_fire = ee.Image().byte();
 
 // Paint the building footprints onto the empty image
-var outline = empty.paint({ 
-  featureCollection: damaged_buildings,
+var outline_fire = empty_fire.paint({ 
+  featureCollection: mean.filter(ee.Filter.gt('mean', 2.5)),
   color: "mean",
   width: 1,
 });
 
 // Dilate the painted areas to make the outline thicker
-var dilated_outline = outline.focal_max({ radius: 3, kernelType: 'circle', iterations: 1 });
+var dilated_outline_fire = outline_fire.focal_max({ radius: 3, kernelType: 'circle', iterations: 1 });
 
 // Define a color palette
-var building_palette = [
-  "0034f5",
-  "1e7d83",
-  "4da910",
-  "b3c120",
-  "fcc228",
-  "ff8410",
-  "fd3000",
+var building_palette_fire = [
+  '70db70', 'ff9933', '7500fa'
 ];
 
 // Add the image to the map
-// mapPanel_fire.addLayer(
-//   dilated_outline,
-//   { palette: building_palette, min: 0, max: 2 },
-//   "Damaged Buildings"
-// );
-
-// fire data layer
-
-var tsuruoka = ee.Geometry.Polygon(
-  [[
-    [139.8400, 38.2700],  // Southeast corner
-    [139.8400, 38.7600],  // Northeast corner
-    [139.3150, 38.7600],  // Northwest corner
-    [139.3150, 38.2700]   // Back to Southwest corner to close the polygon
-  ]]
+mapPanel_fire.addLayer(
+  dilated_outline_fire,
+  { min: 2.5,
+    max: 6,
+    palette: building_palette_fire,
+    opacity: 0.8 },
+  "Damaged Buildings for Fire"
 );
+
+
+
+// // fire data layer
 var firePoints = ee.FeatureCollection('projects/ee-rengeanzu/assets/df1_filter');
 
 
-// Generate impact circular areas for each fire point
-var radii = [15, 50, 100];  // Units are in meters
+// Generate an impact circle area for each fire spot
+var radii = [15, 50, 100];  // The unit is meters
 var fireBuffers = firePoints.map(function(feature) {
   var buffers = ee.FeatureCollection(radii.map(function(radius) {
-    return feature.buffer(radius).set('radius', radius); // Set to current radius, not entire array
+    return feature.buffer(radius).set('radius', radius); 
   }));
   return buffers;
 }).flatten();
-
-// Set display colors for different radii
-var colors = ['FF0000', 'FFFF00', 'FF0000'];  // Red, Yellow, Green
-var opacities = ['44', '88', 'FF'];  // Corresponding opacities, from opaque to semi-transparent
+// Setting the display colors for different radii
+var colors = ['FF0000'];
+var opacities = ['44', '88', 'FF'];  
 var styledBuffers = fireBuffers.map(function(feature) {
-  // Get the radius property of feature, set to default if undefined
-  var radius = feature.get('radius') || 10;  // Default radius is 10 meters
-  var idx = radii.indexOf(radius);  // Get index corresponding to the radius
+  // Retrieve the 'radius' property of the feature, set a default if undefined
+  var radius = feature.get('radius') || 10;  
+  var idx = radii.indexOf(radius);  
 
-  // If idx is invalid, set to default index
+  // Use default index if idx is invalid
   if (idx === -1 || idx === undefined) {
-    idx = 0;  // Use default index 0, usually pointing to a safe value
+    idx = 0;  // Use a safe default index
   }
 
-  // Use valid color and opacity, or use defaults
+  // Use valid colors and opacities, or use default values
   var color = colors[idx] || 'FF0000';  
   var opacity = opacities[idx] || 'FF'; 
   var fillColor = color + opacity; 
 
-  // Define style
+  // Define the style
   var style = {
     color: color,
     fillColor: fillColor,
-    fillOpacity: 0.5  // Fill opacity
+    fillOpacity: 0.5  // Set fill opacity
   };
 
-  // Apply style
+  // Apply the style
   return feature.set('style', style);
 });
 
-// Display the buffers on the map
-// mapPanel_fire.addLayer(styledBuffers.style({styleProperty: 'style'}), {}, 'Impact Zones');
+// Display the buffer zones on the map
+mapPanel_fire.addLayer(styledBuffers.style({styleProperty: 'style'}), {}, 'Impact Zones');
+
+
+// Create a panel to hold labels and a legend
+var panel_fire = ui.Panel({
+  style: {
+    width: '300px',
+    padding: '8px',
+    position: "top-left"
+  }
+});
+
+// Create labels to explain the layers
+var introLabel = ui.Label({
+  value: 'Map Layer Explanation',
+  style: {fontWeight: 'bold', fontSize: '16px', margin: '0 0 4px 0'}
+});
+
+var fireLabel = ui.Label({
+  value: 'Fire Impact Zones: Circles of different colors and radii represent varying levels of fire impact.',
+  style: {fontSize: '12px', margin: '0 0 4px 0'}
+});
+
+var damageLabel = ui.Label({
+  value: 'Damaged Buildings: Different colors indicate the degree of damage to buildings.',
+  style: {fontSize: '12px', margin: '0 0 4px 0'}
+});
+
+// Add labels to the panel
+panel_fire.add(introLabel);
+panel_fire.add(fireLabel);
+panel_fire.add(damageLabel);
+
+// Define a function to create a color legend
+function createLegendItem(color, description) {
+  var colorBox = ui.Label({
+    style: {
+      backgroundColor: '#' + color,
+      // Ensure proper size of the color box
+      padding: '8px',
+      margin: '0 8px 4px 0'
+    }
+  });
+
+  var descriptionLabel = ui.Label({
+    value: description,
+    style: {margin: '0 0 4px 6px'}
+  });
+
+  return ui.Panel({
+    widgets: [colorBox, descriptionLabel],
+    layout: ui.Panel.Layout.Flow('horizontal')
+  });
+}
+
+// Add a legend title to the panel
+var legendTitle = ui.Label({
+  value: 'Legend',
+  style: {fontWeight: 'bold', fontSize: '14px', margin: '8px 0 4px 0'}
+});
+panel_fire.add(legendTitle);
+
+// Add specific color legend items
+var colors = ['70db70', 'ff9933', '7500fa'];
+var descriptions = [
+  'Minor damage - Light green',
+  'Moderate damage - Yellow',
+  'Critical damage - Deep purple'
+];
+
+colors.forEach(function(color, index) {
+  panel_fire.add(createLegendItem(color, descriptions[index]));
+});
 
 ```
 
-![Machine Learning (Random Forest Analysis), 2024](images/Landslide.jpg)
+![Pixelwise t-test, 2024](images/fire.jpg)
 
 
 ### Tsunami
@@ -932,7 +895,7 @@ The script initializes a map panel centred on a specific location and loads elev
 
 ``` js
 
-/// ------------------------------------- AREA ------------------------------------- ///
+  /// ------------------------------------- AREA ------------------------------------- ///
 
 // Create a mappanel for tsunami area
 var mapPanel_tsunami = ui.Map();
@@ -941,9 +904,6 @@ mapPanel_tsunami.setOptions("SATELLITE");
 
 // Load the elevation data
 var elevation = ee.Image('USGS/SRTMGL1_003').clip(aoi);
-
-// Load the CSV file containing building footprints
-var csv = ee.FeatureCollection('projects/ee-rengeanzu/assets/202312BuildingFootprints').filterBounds(aoi);
 
 var bluePalette = [
     '#00008B',   // Dark blue
@@ -1054,7 +1014,7 @@ var aoi = ee.Geometry.Point(136.89961, 37.39405).buffer(3000);
 var elevation = ee.Image('USGS/SRTMGL1_003').clip(aoi);
 
 // Load the CSV file containing building footprints
-var csv = ee.FeatureCollection('projects/ee-rengeanzu/assets/202312BuildingFootprints').filterBounds(aoi);
+// var csv = ee.FeatureCollection('projects/ee-rengeanzu/assets/202312BuildingFootprints').filterBounds(aoi);
 
 // Define an array of flood levels
 var floodLevels = ee.List.sequence(1, 11);
@@ -1083,11 +1043,16 @@ var panel = ui.Panel({
 
 mapPanel_tsunami2.add(panel);
 
+
+var buildings = ee
+   .FeatureCollection("projects/ee-rengeanzu/assets/202312BuildingFootprints")
+   .filterBounds(aoi);
+
 // Function to compute and display the impact of flooding at a specific water level
 function displayFloodImpact(floodLevel) {
     // Flooded area at the current water level
     var flooded = elevation.lte(floodLevel);
-    var floodedPoints = csv.map(function(feature) {
+    var floodedPoints = buildings.map(function(feature) {
         return feature.set('isFlooded', flooded.reduceRegion({
             reducer: ee.Reducer.anyNonZero(),
             geometry: feature.geometry(),
@@ -1125,7 +1090,7 @@ mapPanel_tsunami.setOptions("SATELLITE");
 var elevation = ee.Image('USGS/SRTMGL1_003').clip(aoi);
 
 // Load the CSV file containing building footprints
-var csv = ee.FeatureCollection('projects/ee-rengeanzu/assets/202312BuildingFootprints').filterBounds(aoi);
+// var csv = ee.FeatureCollection('projects/ee-rengeanzu/assets/202312BuildingFootprints').filterBounds(aoi);
 
 var bluePalette = [
     '#00008B',  // Dark blue
@@ -1234,7 +1199,7 @@ var tsunamiLabel = ui.Label('Simulation of tsunami inundation on City of Wajima'
 
 ```
 
-![Assumptions: Flood levels, 2024](images/Tsunami.jpg)
+![Assumptions: Flood levels](images/Tsunami.jpg)
 
 ## Validation
 One may witness the change from before and after building damage representing the pre-disaster and post-disaster.
