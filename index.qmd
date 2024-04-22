@@ -713,7 +713,7 @@ mapPanel_landslide.add(panel);
 
 ### Fire
 
-The code snippet creates a fire burn area **visualization tool in Earth Engine's JavaScript API**. It allows users to select different fire datasets and years using dropdown menus and sliders, respectively. Upon selection, the map dynamically updates to display the burned areas for the chosen dataset and year, aiding in the assessment and monitoring of fire impacts over time and across different datasets.
+This code is intended to help visualise the occurrence of fires during and after the earthquake (end of December 2023 to early January 2024) and the areas that may have caused damage to buildings. The map visualisation highlights the immediate area affected by the fires and the extent of damage caused to buildings to help us identify areas where buildings may have been damaged as a result of the fires. Fire data points for this precise time were obtained by sending an email request to NASA. The code is divided into damaged building identification and fire affected areas.
 
 ``` js
 var mapPanel_fire = ui.Map();
